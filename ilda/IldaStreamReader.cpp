@@ -3,7 +3,6 @@
 
 IldaStreamReader::IldaStreamReader()
 {
-    _currentRecord = (uint8_t *) std::malloc(RECORD_BUFFER_SIZE);
     Reset();
 }
 
@@ -26,7 +25,7 @@ int IldaStreamReader::GetLastReadElementType(int * elementType)
     return ERROR_SUCCESS;
 }
 
-int IldaStreamReader::GetRecord(void * outIldaRecord)
+int IldaStreamReader::GetRecord(uint8_t * outIldaRecord)
 {
 
     int len = 0;
@@ -68,30 +67,45 @@ int IldaStreamReader:: Read()
         int frameSize = sizeof(IldaFrame);
         int copySize = frameSize - _currentElementPosition;
 
-        if ((copySize + _rawDataPosition) <= _rawDataLength)
+        if ((copySize + _rawDataPosition) <= _rawDataSize)
         {
             _isCurrentElementRead = true;
             _lastReadElementType = _currentElementType;
         }
         else
         {
-            copySize = _rawDataLength - _rawDataPosition;
+            copySize = _rawDataSize - _rawDataPosition;
             result = ERROR_NOT_ENOUGHT_DATA;
             _isCurrentElementRead = false;
         }
 
-        memcpy(((uint8_t *)&_currentFrame + _currentElementPosition), ((uint8_t *)_rawData + _rawDataPosition), copySize);
+        memcpy((void *)((uint8_t *)&_currentFrame + _currentElementPosition), (void *)(_rawData + _rawDataPosition), copySize);
 
         _currentElementPosition = (_currentElementPosition + copySize) % frameSize;
         _rawDataPosition = _rawDataPosition + copySize;
 
-        if (_isCurrentElementRead && _currentFrame.totalFrames > 0)
+        if (_isCurrentElementRead)
         {
             _currentFrame.numberOfRecords = REVERSE_U16BIT(_currentFrame.numberOfRecords);
             _currentFrame.frameNumber = REVERSE_U16BIT(_currentFrame.frameNumber);
             _currentFrame.totalFrames = REVERSE_U16BIT(_currentFrame.totalFrames);
 
-            _currentElementType = ELEMENTTYPE_RECORD;
+            if (_currentFrame.formatCode != 0 &&
+                _currentFrame.formatCode != 1 &&
+                _currentFrame.formatCode != 2 &&
+                _currentFrame.formatCode != 4 &&
+                _currentFrame.formatCode != 5
+            )
+            {
+                result = ERROR_INVALID_RECORD_FORMAT;
+            }
+            else
+            {
+                if (_currentFrame.totalFrames > 0)
+                {
+                    _currentElementType = ELEMENTTYPE_RECORD;
+                }
+            }
         }
 
     }
@@ -109,74 +123,80 @@ int IldaStreamReader:: Read()
             case 5: recordSize = sizeof(IldaRecordF5); break;
         
             default:
+                result = ERROR_INVALID_RECORD_FORMAT;
                 break;
         }
 
-        int copySize = recordSize - _currentElementPosition;
-
-        if ((copySize + _rawDataPosition) <= _rawDataLength)
+        if (recordSize > 0)
         {
-            _isCurrentElementRead = true;
-            _lastReadElementType = _currentElementType;
-            _currentRecordNumber++;
-        }
-        else
-        {
-            copySize = _rawDataLength - _rawDataPosition;
-            result = ERROR_NOT_ENOUGHT_DATA;
-            _isCurrentElementRead = false;
-        }
 
-        memcpy((_currentRecord + _currentElementPosition), ((uint8_t *)_rawData + _rawDataPosition), recordSize);
-        
-        _currentElementPosition = (_currentElementPosition + copySize) % recordSize;
-        _rawDataPosition = _rawDataPosition + copySize;
+            int copySize = recordSize - _currentElementPosition;
 
-        if (_isCurrentElementRead)
-        {
-            switch (_currentFrame.formatCode)
+            if ((copySize + _rawDataPosition) <= _rawDataSize)
             {
-                case 0: 
-                {
-                    IldaRecordF0 * record = (IldaRecordF0 *) _currentRecord;
-                    record->x = REVERSE_16BIT(record->x);
-                    record->y = REVERSE_16BIT(record->y);
-                    record->z = REVERSE_16BIT(record->z);
-                    break;
-                }
-
-                case 1: 
-                {
-                    IldaRecordF1 * record = (IldaRecordF1 *) _currentRecord;
-                    record->x = REVERSE_16BIT(record->x);
-                    record->y = REVERSE_16BIT(record->y);
-                    break;
-                }
-
-                case 4:
-                {
-                    IldaRecordF4 * record = (IldaRecordF4 *) _currentRecord;
-                    record->x = REVERSE_16BIT(record->x);
-                    record->y = REVERSE_16BIT(record->y);
-                    record->z = REVERSE_16BIT(record->z);
-                    break;
-                }
-
-                case 5:
-                {
-                    IldaRecordF5 * record = (IldaRecordF5 *) _currentRecord;
-                    record->x = REVERSE_16BIT(record->x);                    
-                    record->y = REVERSE_16BIT(record->y);
-                    break;
-                }
-            
+                _isCurrentElementRead = true;
+                _lastReadElementType = _currentElementType;
+                _currentRecordNumber++;
             }
-        }
+            else
+            {
+                copySize = _rawDataSize - _rawDataPosition;
+                result = ERROR_NOT_ENOUGHT_DATA;
+                _isCurrentElementRead = false;
+            }
 
-        if (_currentRecordNumber == _currentFrame.numberOfRecords)
-        {
-            _currentRecordNumber = 0;
-            _currentElementType = ELEMENTTYPE_NONE;
+                memcpy((void *)(_currentRecord + _currentElementPosition), (void *)(_rawData + _rawDataPosition), recordSize);
+            
+            _currentElementPosition = (_currentElementPosition + copySize) % recordSize;
+            _rawDataPosition = _rawDataPosition + copySize;
+
+            if (_isCurrentElementRead)
+            {
+                switch (_currentFrame.formatCode)
+                {
+                    case 0: 
+                    {
+                        IldaRecordF0 * record = (IldaRecordF0 *) _currentRecord;
+                        record->x = REVERSE_16BIT(record->x);
+                        record->y = REVERSE_16BIT(record->y);
+                        record->z = REVERSE_16BIT(record->z);
+                        break;
+                    }
+
+                    case 1: 
+                    {
+                        IldaRecordF1 * record = (IldaRecordF1 *) _currentRecord;
+                        record->x = REVERSE_16BIT(record->x);
+                        record->y = REVERSE_16BIT(record->y);
+                        break;
+                    }
+
+                    case 4:
+                    {
+                        IldaRecordF4 * record = (IldaRecordF4 *) _currentRecord;
+                        record->x = REVERSE_16BIT(record->x);
+                        record->y = REVERSE_16BIT(record->y);
+                        record->z = REVERSE_16BIT(record->z);
+                        break;
+                    }
+
+                    case 5:
+                    {
+                        IldaRecordF5 * record = (IldaRecordF5 *) _currentRecord;
+                        record->x = REVERSE_16BIT(record->x);                    
+                        record->y = REVERSE_16BIT(record->y);
+                        break;
+                    }
+                
+                }
+            }
+
+            if (_currentRecordNumber == _currentFrame.numberOfRecords)
+            {
+                _currentRecordNumber = 0;
+                _currentElementType = ELEMENTTYPE_NONE;
+            }
+
         }
 
     }
@@ -192,7 +212,7 @@ int IldaStreamReader:: Read()
 
 bool IldaStreamReader::IsDataEnd()
 {
-    return _rawDataPosition >= _rawDataLength;
+    return _rawDataPosition >= _rawDataSize;
 }
 
 
@@ -201,7 +221,7 @@ void IldaStreamReader::Reset()
 
     memset((void *)_currentRecord, 0, RECORD_BUFFER_SIZE);
 
-    memset(&_currentFrame, 0, sizeof(IldaFrame));
+    memset((void *)&_currentFrame, 0, sizeof(IldaFrame));
     _currentFrame.numberOfRecords = -1;
     _currentFrame.frameNumber = -1;
     _currentFrame.totalFrames = -1;
@@ -217,11 +237,11 @@ void IldaStreamReader::Reset()
 
 }
 
-int IldaStreamReader::SetRawData(const void * inRawData, int lenght)
+int IldaStreamReader::SetRawData(const uint8_t * inRawData, int rawDataSize)
 {
 
     _rawData = inRawData;
-    _rawDataLength = lenght;
+    _rawDataSize = rawDataSize;
     _rawDataPosition = 0;
 
     return ERROR_SUCCESS;

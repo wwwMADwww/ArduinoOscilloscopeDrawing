@@ -4,6 +4,9 @@
 
 // https://www.ilda.com/resources/StandardsDocs/ILDA_IDTF14_rev011.pdf
 
+const int ILDA_RECORD_STATUS_FLAG_BLANKING  = 0b01000000;
+const int ILDA_RECORD_STATUS_FLAG_LASTPOINT = 0b10000000;
+
 struct IldaFrame
 {
   char ILDA[4];             // 1-4 "ILDA"
