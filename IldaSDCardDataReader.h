@@ -1,34 +1,32 @@
 
-#ifndef ILDASDCARDREADER_H
+// #ifndef ILDASDCARDREADER_H
 
-#define ILDASDCARDREADER_H
+// #define ILDASDCARDREADER_H
 
-#include "FS.h"
-#include "SD.h"
-#include "SPI.h"
+// #include "FS.h"
+// #include "SD.h"
+// #include "SPI.h"
 
-#include "IldaProcessor.h"
+// #include "IldaProcessor.h"
 
-class IldaSDCardDataReader: public IldaDataReaderBase
-{
-    public:
-        void Init() override;
+// class IldaSDCardDataReader: public IldaDataReaderBase
+// {
+//     public:
+//         void Init() override;
 
-        int Read(uint8_t * buf, int bufSize) override;
-        void ResetToBegin() override;
+//         int Read(uint8_t * buf, int bufSize) override;
+//         void ResetToBegin() override;
     
-    protected:
+//     protected:
     
-        int _sdCardWaitTime = 3000;
+//         int _sdCardWaitTime = 3000;
 
-        int _fileReadBufSize = 1024 * 10;
+//         int _filenameLen = 255;
+//         char * _filename;
 
-        int _filenameLen = 255;
-        char * _filename;
-
-        File _file;
-        // int _fileSize = 0;
-};
+//         File _file;
+//         // int _fileSize = 0;
+// };
 
 
-#endif
+// #endif

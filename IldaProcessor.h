@@ -3,6 +3,7 @@
 
 #define ILDAPROCESSOR_H
 
+#include "Arduino.h"
 #include "IldaStreamReader.h"
 
 class IldaDataReaderBase
@@ -25,6 +26,8 @@ class IldaOutputBase
         virtual void Out();
 
         virtual void SetAndOut(int16_t x, int16_t y, int16_t z, uint8_t r, uint8_t g, uint8_t b, bool blank);
+
+        virtual void NoDataLed(bool newState);
 };
 
 class IldaProcessor
@@ -39,7 +42,7 @@ class IldaProcessor
 
         void Init();
 
-        void Process();
+        int Process();
 
         void Reset();
 
@@ -50,6 +53,8 @@ class IldaProcessor
         IldaOutputBase * _ildaOutput;
         IldaStreamReader * _ildaStreamReader;
         
+        int _nodatamillisStart;
+        int _nodatamillisCurrent;
 
         // read and store
         uint8_t * _databuf = 0;
@@ -71,6 +76,9 @@ class IldaProcessor
         int16_t _r;
         int16_t _g;
         int16_t _b;
+
+        
+        int16_t _testx = 0;
 
         bool _blanking;
         bool _lastPoint;

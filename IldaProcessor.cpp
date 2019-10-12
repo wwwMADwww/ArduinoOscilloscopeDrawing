@@ -24,6 +24,7 @@ void IldaProcessor::Init()
 
     _ildaOutput->Init();
 
+    pinMode(  5, OUTPUT);
 
 }
 
@@ -33,6 +34,9 @@ void IldaProcessor::Reset()
     if (_databuf) delete _databuf;
     if (_recordBuf) delete _recordBuf;
     if (_colorPalette) delete _colorPalette;
+
+    _nodatamillisStart = 0;
+    _nodatamillisCurrent = 0;
 
     _code = IldaStreamReader::ERROR_NOT_ENOUGHT_DATA;
 
@@ -47,7 +51,7 @@ void IldaProcessor::Reset()
     _blanking = true;
     _lastPoint = false;
 
-    _dataBufSize = 1024 * 10;
+    _dataBufSize = 1024; //64; //760; // 256; //1024 * 10;
     _databuf = new uint8_t[_dataBufSize];
 
     _recordBuf = new uint8_t[IldaStreamReader::RECORD_BUFFER_SIZE];
@@ -56,11 +60,14 @@ void IldaProcessor::Reset()
 
     _colorPaletteReadID = 0;
 
+    
+    _ildaOutput->NoDataLed(true);
+
 }
 
 
 
-void IldaProcessor::Process()
+int IldaProcessor::Process()
 {
     // Serial.println("Processing Ilda file");
 
@@ -68,7 +75,29 @@ void IldaProcessor::Process()
     {
         _ildaOutput->SetBlank(true);
         _ildaOutput->Out();
+
         int bytesRead = _ildaDataReader->Read(_databuf, _dataBufSize);
+
+        if (bytesRead < 0)
+        {
+            _nodatamillisCurrent = millis();
+
+            if (_nodatamillisStart == 0)
+                _nodatamillisStart = _nodatamillisCurrent;
+            else if (_nodatamillisCurrent - _nodatamillisStart > 100)
+            {
+                _ildaStreamReader->Reset();
+                _ildaOutput->NoDataLed(true);
+                Reset();
+            }
+            return _code;
+        }
+        else
+        {
+            _nodatamillisStart = 0;
+            _nodatamillisCurrent = 0;
+            _ildaOutput->NoDataLed(false);
+        }
 
         _code = _ildaStreamReader->SetRawData(_databuf, bytesRead);
     }
@@ -77,12 +106,12 @@ void IldaProcessor::Process()
 
     if (_code == IldaStreamReader::ERROR_NOT_ENOUGHT_DATA)
     {
-        return;
+        return _code;
     }
 
     if (_code == IldaStreamReader::ERROR_INVALID_RECORD_FORMAT)
     {
-        return;
+        return _code;
     }
 
     int elementType = IldaStreamReader::ELEMENTTYPE_NONE;
@@ -90,7 +119,7 @@ void IldaProcessor::Process()
     
     if (_code == IldaStreamReader::ERROR_NOT_ENOUGHT_DATA)
     {
-        return;
+        return _code;
     }
 
     if (elementType == IldaStreamReader::ELEMENTTYPE_FRAME)
@@ -99,14 +128,14 @@ void IldaProcessor::Process()
 
         if (_code == IldaStreamReader::ERROR_NOT_ENOUGHT_DATA)
         {
-            return;
+            return _code;
         }
 
         if (_frame.numberOfRecords == 0)
         {
             _ildaDataReader->ResetToBegin();
             _code = IldaStreamReader::ERROR_NOT_ENOUGHT_DATA;
-            return;
+            return _code;
         }
 
         if (_frame.formatCode == 2)
@@ -129,7 +158,7 @@ void IldaProcessor::Process()
 
         if (_code == IldaStreamReader::ERROR_NOT_ENOUGHT_DATA)
         {
-            return;
+            return _code;
         }
 
         switch (_frame.formatCode)
@@ -217,7 +246,8 @@ void IldaProcessor::Process()
             {   
                 // Serial.print("Unknown record format: ");
                 // Serial.println(_frame.formatCode);
-                return;
+                // digitalWrite(5, HIGH);
+                return 0x102;
             }
         }
     }
@@ -225,8 +255,12 @@ void IldaProcessor::Process()
     {
         // Serial.print("Unknown error code: ");
         // Serial.println(_code);
-        return;
+        
+        // digitalWrite(5, HIGH);
+        return 0x103;
     }
+
+    // _x = _testx++;
 
     _ildaOutput->SetAndOut(
         _x, 
@@ -241,6 +275,9 @@ void IldaProcessor::Process()
     );
     
 
+    // digitalWrite(5, HIGH);
+
+    return _code;
 
 }
 
